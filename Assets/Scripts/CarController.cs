@@ -7,6 +7,7 @@ public class CarController : MonoBehaviour
     [SerializeField] private Transform[] rayPoints;
     [SerializeField] private LayerMask drivable;
     [SerializeField] private Transform accelarationPoint;
+    [SerializeField] private GameObject[] tires = new GameObject[4];
 
     [Header("Suspension Settings")]
     [SerializeField] private float springStiffness; //max force our spring exerts when fully compressed
@@ -25,13 +26,21 @@ public class CarController : MonoBehaviour
     [Header("Car Settings")]
     [SerializeField] private float accelaration = 25f;
     [SerializeField] private float maxSpeed = 100f;
-    [SerializeField] private float retardation = 10f;
+    [SerializeField] private float retardation = 50f;
     [SerializeField] private float steerStrength = 15f;
     [SerializeField] private float dragCoeff = 1f;
+    [SerializeField] private float downforce = 100f;
     [SerializeField] private AnimationCurve turningCurve;
+    [SerializeField] private float oversteerFactor = 1f;
 
     private Vector3 currentCarLocalVelocity = Vector3.zero;
     private float carVelocityRatio = 0;
+
+    [Header("Wheel Visuals")]
+    [SerializeField] private Transform frontLeftWheel;
+    [SerializeField] private Transform frontRightWheel;
+    [SerializeField] private Transform rearLeftWheel;
+    [SerializeField] private Transform rearRightWheel;
 
     #region Unity Methods
 
@@ -49,6 +58,8 @@ public class CarController : MonoBehaviour
         GroundCheck();
         CalculateCarVelocity();
         Movement();
+        Downforce();
+        UpdateTireVisuals();
     }
 
     private void Update()
@@ -87,6 +98,8 @@ public class CarController : MonoBehaviour
             else
             {
                 wheelIsGrounded[i] = 0;
+
+     
 
                 Debug.DrawLine(rayPoints[i].position, rayPoints[i].position + (wheelRadius + maxLength) * -rayPoints[i].up, Color.green);
             }
@@ -147,6 +160,7 @@ public class CarController : MonoBehaviour
             }
             else if (moveInput < 0f)
             {
+                
                 if (currentCarLocalVelocity.z > -maxSpeed)
                 Retardation();
             }
@@ -167,7 +181,13 @@ public class CarController : MonoBehaviour
 
     private void Turn()
     {
-        carRb.AddRelativeTorque(steerStrength * steerInput * turningCurve.Evaluate(Mathf.Abs(carVelocityRatio)) * Mathf.Sign(carVelocityRatio) * carRb.transform.up, ForceMode.Acceleration);
+        float steeringTorque = steerStrength * steerInput * turningCurve.Evaluate(Mathf.Abs(carVelocityRatio)) * Mathf.Sign(carVelocityRatio);
+        carRb.AddRelativeTorque(steeringTorque * transform.up, ForceMode.Acceleration);
+
+        Vector3 frontAxlePos = (frontLeftWheel.position + frontRightWheel.position) * 0.5f;
+
+        Vector3 lateralForce = steerInput * steerStrength * oversteerFactor * transform.right;
+        carRb.AddForceAtPosition(lateralForce, frontAxlePos, ForceMode.Force);
     }
 
     private void SidewaysDrag()
@@ -179,6 +199,37 @@ public class CarController : MonoBehaviour
         Vector3 dragForce = transform.right * dragMagnitude;
 
         carRb.AddForceAtPosition(dragForce, carRb.worldCenterOfMass, ForceMode.Acceleration);
+    }
+
+    private void Downforce()
+    {
+        float speed = carRb.linearVelocity.magnitude;
+        carRb.AddForce(-transform.up * downforce * speed);
+    }
+
+    #endregion
+
+    #region Visuals
+
+    private void UpdateTireVisuals()
+    {
+        float rotationAmount = currentCarLocalVelocity.z * Time.deltaTime * 360f;
+        float steerAngle = steerInput * 30f;
+
+        //rear wheels 
+        rearLeftWheel.Rotate(Vector3.right, rotationAmount, Space.Self);
+        rearRightWheel.Rotate(Vector3.right, rotationAmount, Space.Self);
+
+        //front wheels
+        frontLeftWheel.Rotate(Vector3.right, rotationAmount, Space.Self);
+        frontRightWheel.Rotate(Vector3.right, rotationAmount, Space.Self);
+
+        //front steer 
+        Vector3 leftEuler = frontLeftWheel.localEulerAngles;
+        Vector3 rightEuler = frontRightWheel.localEulerAngles;
+
+        frontLeftWheel.localRotation = Quaternion.Euler(leftEuler.x, steerAngle, leftEuler.z);
+        frontRightWheel.localRotation = Quaternion.Euler(rightEuler.x, steerAngle, rightEuler.z);
     }
 
     #endregion
