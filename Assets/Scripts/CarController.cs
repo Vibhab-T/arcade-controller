@@ -3,10 +3,10 @@ using UnityEngine;
 public class CarController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private Rigidbody carRb;
+    [SerializeField] public Rigidbody carRb;
     [SerializeField] private Transform[] rayPoints;
     [SerializeField] private LayerMask drivable;
-    [SerializeField] private Transform accelarationPoint;
+    [SerializeField] public Transform accelarationPoint;
     [SerializeField] private GameObject[] tires = new GameObject[4];
 
     [Header("Suspension Settings")]
@@ -37,10 +37,10 @@ public class CarController : MonoBehaviour
     private float carVelocityRatio = 0;
 
     [Header("Wheel Visuals")]
-    [SerializeField] private Transform frontLeftWheel;
-    [SerializeField] private Transform frontRightWheel;
-    [SerializeField] private Transform rearLeftWheel;
-    [SerializeField] private Transform rearRightWheel;
+    [SerializeField] public Transform frontLeftWheel;
+    [SerializeField] public Transform frontRightWheel;
+    [SerializeField] public Transform rearLeftWheel;
+    [SerializeField] public Transform rearRightWheel;
 
     #region Unity Methods
 

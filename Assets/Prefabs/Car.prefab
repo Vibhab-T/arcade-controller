@@ -49,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6bb9339fb010a0040acc6419b49d21d2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  carRb: {fileID: 0}
+  carRb: {fileID: 3816606854623371835}
   rayPoints:
   - {fileID: 6010107433477405457}
   - {fileID: 1531984475108233225}
@@ -171,6 +171,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  oversteerFactor: 1
   frontLeftWheel: {fileID: 5968920749642036430}
   frontRightWheel: {fileID: 7734603412785582846}
   rearLeftWheel: {fileID: 1872126640384039906}

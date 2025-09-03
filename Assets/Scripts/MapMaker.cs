@@ -11,47 +11,43 @@ public class MapMaker : MonoBehaviour
     [Header("Prefabs")]
     public GameObject grassPrefab;
     public GameObject roadPrefab;
-    public GameObject carPrefab;
 
     [Header("Cars")]
-    public int carCount = 10;
+    public GameObject playerCar;   // Assign the existing car in the scene
+    public GameObject aiCarPrefab;
+    public int aiCarCount = 10;
 
     private int[,] grid;
     private Dictionary<Vector2Int, GameObject> tileNodes = new Dictionary<Vector2Int, GameObject>();
 
     private void Start()
     {
-        // Init grid
-        grid = new int[width, height];
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                grid[x, y] = 0;
-
-        // Random horizontal roads
-        for (int y = 0; y < height; y++)
-        {
-            if (Random.value < roadChance)
-            {
-                for (int x = 0; x < width; x++)
-                    grid[x, y] = 1;
-            }
-        }
-
-        // Random vertical roads
-        for (int x = 0; x < width; x++)
-        {
-            if (Random.value < roadChance)
-            {
-                for (int y = 0; y < height; y++)
-                    grid[x, y] = 1;
-            }
-        }
-
+        InitializeGrid();
         PaintGrid();
 
-        // Spawn cars after grid is ready
-        for (int i = 0; i < carCount; i++)
-            SpawnCarWithMinSteps(15);
+        // Move the existing player car to a valid road tile
+        PlacePlayerCar();
+
+        // Spawn AI cars
+        for (int i = 0; i < aiCarCount; i++)
+            SpawnCarWithMinSteps(aiCarPrefab, 15);
+    }
+
+    void InitializeGrid()
+    {
+        grid = new int[width, height];
+
+        // Horizontal roads
+        for (int y = 0; y < height; y++)
+            if (Random.value < roadChance)
+                for (int x = 0; x < width; x++)
+                    grid[x, y] = 1;
+
+        // Vertical roads
+        for (int x = 0; x < width; x++)
+            if (Random.value < roadChance)
+                for (int y = 0; y < height; y++)
+                    grid[x, y] = 1;
     }
 
     void PaintGrid()
@@ -69,47 +65,61 @@ public class MapMaker : MonoBehaviour
         }
     }
 
-    void SpawnCarWithMinSteps(int minSteps = 15)
+    void PlacePlayerCar()
+    {
+        if (playerCar == null) return;
+
+        // Find a random road tile
+        List<Vector2Int> roads = new List<Vector2Int>();
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (grid[x, y] == 1) roads.Add(new Vector2Int(x, y));
+
+        if (roads.Count == 0) return;
+
+        Vector2Int chosenTile = roads[Random.Range(0, roads.Count)];
+        Vector3 newPos = new Vector3(chosenTile.x * 2 + 1, 0.5f, chosenTile.y * 2 + 1);
+
+        // Move the car
+        playerCar.transform.position = newPos;
+
+        // Reset rotation
+        playerCar.transform.rotation = Quaternion.identity;
+
+        // Optionally, if playerCar has a Traffic script, assign a path
+        var traffic = playerCar.GetComponent<Traffic>();
+        if (traffic != null)
+        {
+            // Create a simple path for demo purposes (can be expanded)
+            List<Vector2Int> path = new List<Vector2Int> { chosenTile };
+            traffic.SetPath(path);
+        }
+    }
+
+    void SpawnCarWithMinSteps(GameObject carPrefab, int minSteps = 15)
     {
         List<Vector2Int> roads = new List<Vector2Int>();
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++)
                 if (grid[x, y] == 1) roads.Add(new Vector2Int(x, y));
 
-        if (roads.Count < 2)
-        {
-            Debug.LogError("Not enough roads to spawn a car!");
-            return;
-        }
+        if (roads.Count < 2) return;
 
         Vector2Int start = roads[Random.Range(0, roads.Count)];
-
-        List<Vector2Int> candidates = new List<Vector2Int>();
-        foreach (var road in roads)
-            if (Vector2Int.Distance(start, road) >= minSteps)
-                candidates.Add(road);
-
-        if (candidates.Count == 0)
-        {
-            Debug.LogError("No valid end positions satisfy minimum distance!");
-            return;
-        }
+        List<Vector2Int> candidates = roads.FindAll(r => Vector2Int.Distance(start, r) >= minSteps);
+        if (candidates.Count == 0) return;
 
         Vector2Int end = candidates[Random.Range(0, candidates.Count)];
-
         List<Vector2Int> path = FindPath(start, end);
-        if (path.Count < minSteps)
-        {
-            Debug.LogError("Generated path is shorter than minimum steps. Consider increasing road connectivity.");
-            return;
-        }
+        if (path.Count < minSteps) return;
 
         Vector3 spawnPos = new Vector3(start.x * 2 + 1, 0.5f, start.y * 2 + 1);
         GameObject car = Instantiate(carPrefab, spawnPos, Quaternion.identity);
         car.transform.parent = this.transform;
-        car.SendMessage("SetPath", path, SendMessageOptions.DontRequireReceiver);
 
-        Debug.Log($"Car spawned from {start} to {end} | Path length: {path.Count}");
+        var traffic = car.GetComponent<Traffic>();
+        if (traffic != null)
+            traffic.SetPath(path);
     }
 
     // -----------------------------
@@ -136,15 +146,12 @@ public class MapMaker : MonoBehaviour
 
             foreach (var neighbor in GetNeighbours(current))
             {
-                int tentativeG = gScore.ContainsKey(current) ? gScore[current] + 1 : int.MaxValue;
-                int neighborG = gScore.ContainsKey(neighbor) ? gScore[neighbor] : int.MaxValue;
-
-                if (tentativeG < neighborG)
+                int tentativeG = gScore[current] + 1;
+                if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
                 {
                     cameFrom[neighbor] = current;
                     gScore[neighbor] = tentativeG;
                     fScore[neighbor] = tentativeG + Vector2Int.Distance(neighbor, goal);
-
                     if (!openSet.Contains(neighbor))
                         openSet.Add(neighbor);
                 }
